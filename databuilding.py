@@ -1,6 +1,8 @@
-from statistics import median, mean, quantiles
+from statistics import mean, quantiles
 import json
 import re
+
+from tables.conversion_tables import term_types
 
 
 # ---------------------------------------------------
@@ -16,9 +18,9 @@ with open(f"{indir}/export_item.json", mode="r") as f:
     js_item = json.load(f)
 
 
-def prep_data():
+def databuild():
     """
-    prepare the data to build visualisations
+    prepare the data to build visualisations on prices
     :return:
     """
     pdict_ls_cat = {}  # dictionnary mapping to a year a list of catalogue prices to calculate totals, medians + means
@@ -26,12 +28,13 @@ def prep_data():
     cdict_fix_item = {}  # dictionary mapping to a year the total of fixed price items sold (cdict = count dictionary)
     cdict_auc_item = {}  # dictionary mapping to a year the total of non fixed price items sold: the auction items
     quart_ls_item = {}  # dictionary mapping to a 5 year range its quartiles
+    term_item = {}  # dict mapping to a term (mss type) a dict that maps year to the n° of occurrences of that type
     sort_fix_item = {}  # "sort" dictionaries below are used to sort the above dicts by year
     sort_auc_item = {}
     sort_ls_item = {}
     sort_ls_cat = {}
 
-    # create a one dictionnary: pdict_ls_cat, a dictionnary mapping to a year the list of total catalogue
+    # create a new dictionnary: pdict_ls_cat, a dictionnary mapping to a year the list of total catalogue
     # prices ; from that list, we will be able to calculate
     # - the total price of all items sold
     # - the median price of a full catalogue per year
@@ -46,11 +49,15 @@ def prep_data():
                 pdict_ls_cat[date].append(js_cat[c]["total_price_c"])
             figpath = True  # at this point, it is certain that figures are created
 
-    # create three dictionnaries:
+    # create 4 dictionnaries:
     # - pdict_ls_item: list of item prices per year
     # - cdict_fix_item: number of fixed price items sold per year
     # - cdict_auc_item: number of non-fixed price items sold per year
-    for i in js_item:  # loop over every item in the json
+    # - term_item: {year: {term: number of items}}
+    ls = []
+    for i in js_item:
+        # append data to the dicts
+
         if "sell_date" in js_item[i]:
             date = re.findall(r"\d{4}", js_item[i]["sell_date"])[0]  # year of the sale
             # calculate the number of fixed price and auction items put up for sale every year
@@ -72,6 +79,22 @@ def prep_data():
                     pdict_ls_item[date] = [js_item[i]["price_c"]]
                 elif date in pdict_ls_item.keys():
                     pdict_ls_item[date].append(js_item[i]["price_c"])
+
+            # build term_item
+            if js_item[i]["term"] is not None:
+                ls.append(date)
+                # find the actual name for a term
+                for k, v in term_types.items():
+                    if v == js_item[i]["term"]:
+                        term = k
+                # append it to the dict
+                if term not in term_item.keys():
+                    term_item[term] = {date: 1}
+                else:
+                    if date in term_item[term].keys():
+                        term_item[term][date] += 1
+                    else:
+                        term_item[term][date] = 1
 
     # finalise the data creation ; for some reason, the lengths of catalogues vary depending on the
     # source catalogue and what is being calculated ; the keys also vary from one dictionary to another.
@@ -96,8 +119,9 @@ def prep_data():
     group_ls_item = sorter(pdict_ls_item)  # dictionary mapping to a 5 year range the list prices for that range
     for k, v in group_ls_item.items():
         quart_ls_item[str(k)] = quantiles(v)
+    # we don't reorder term_item, there's no point.
 
-    return datelist, pdict_ls_cat, pdict_ls_item, cdict_auc_item, cdict_fix_item, quart_ls_item
+    return datelist, pdict_ls_cat, pdict_ls_item, cdict_auc_item, cdict_fix_item, quart_ls_item, term_item
 
 
 def sorter(input_dict):
@@ -131,3 +155,7 @@ def sorter(input_dict):
             for v in input_dict[str(d)]:
                 output_dict[k].append(v)
     return output_dict
+
+
+if __name__ == "__main__":
+    databuild()
