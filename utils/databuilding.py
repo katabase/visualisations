@@ -2,7 +2,7 @@ from statistics import mean, quantiles
 import json
 import re
 
-from tables.conversion_tables import term_types
+from .conversion_tables import term_types
 
 
 # ---------------------------------------------------
@@ -21,14 +21,15 @@ with open(f"{indir}/export_item.json", mode="r") as f:
 def databuild():
     """
     prepare the data to build visualisations on prices
-    :return:
+    :return: a lot of dicts
     """
     pdict_ls_cat = {}  # dictionnary mapping to a year a list of catalogue prices to calculate totals, medians + means
     pdict_ls_item = {}  # dictionnary mapping to a year a list of item prices, to calculate median and mean values
     cdict_fix_item = {}  # dictionary mapping to a year the total of fixed price items sold (cdict = count dictionary)
     cdict_auc_item = {}  # dictionary mapping to a year the total of non fixed price items sold: the auction items
     quart_ls_item = {}  # dictionary mapping to a 5 year range its quartiles
-    term_item = {}  # dict mapping to a term (mss type) a dict that maps year to the n° of occurrences of that type
+    cdict_term_item = {}  # dict mapping to a term (mss type) a dict that maps year to the n° of occurrences of that type
+    pdict_auth_item = {}  # dictionnary mapping to an author name a dict {year: list of all items price}
     sort_fix_item = {}  # "sort" dictionaries below are used to sort the above dicts by year
     sort_auc_item = {}
     sort_ls_item = {}
@@ -82,19 +83,38 @@ def databuild():
 
             # build term_item
             if js_item[i]["term"] is not None:
-                ls.append(date)
                 # find the actual name for a term
                 for k, v in term_types.items():
                     if v == js_item[i]["term"]:
                         term = k
                 # append it to the dict
-                if term not in term_item.keys():
-                    term_item[term] = {date: 1}
+                if term not in cdict_term_item.keys():
+                    cdict_term_item[term] = {date: 1}
                 else:
-                    if date in term_item[term].keys():
-                        term_item[term][date] += 1
+                    if date in cdict_term_item[term].keys():
+                        cdict_term_item[term][date] += 1
                     else:
-                        term_item[term][date] = 1
+                        cdict_term_item[term][date] = 1
+
+            if js_item[i]["author"] is not None and "price_c" in js_item[i].keys():
+                # extract author and price; normalize author name
+                author = js_item[i]["author"].split()
+                auth = ""
+                for a in author:
+                    # special case of roman numers
+                    if not re.search(r"^[MLCDVIX]+$", a):
+                        auth += f"{a[0].upper()}{a[1:].lower()} "
+                    else:
+                        auth += a
+                auth = re.sub(r"\s+", " ", auth).strip()
+                price = js_item[i]["price_c"]
+                if auth not in pdict_auth_item.keys():
+                    pdict_auth_item[auth] = {date: [price]}
+                else:
+                    if date in pdict_auth_item[auth].keys():
+                        pdict_auth_item[auth][date].append(price)
+                    else:
+                        pdict_auth_item[auth][date] = [price]
 
     # finalise the data creation ; for some reason, the lengths of catalogues vary depending on the
     # source catalogue and what is being calculated ; the keys also vary from one dictionary to another.
@@ -121,7 +141,8 @@ def databuild():
         quart_ls_item[str(k)] = quantiles(v)
     # we don't reorder term_item, there's no point.
 
-    return datelist, pdict_ls_cat, pdict_ls_item, cdict_auc_item, cdict_fix_item, quart_ls_item, term_item
+    return datelist, pdict_ls_cat, pdict_ls_item, cdict_auc_item, cdict_fix_item, quart_ls_item, \
+        cdict_term_item, pdict_auth_item
 
 
 def sorter(input_dict):

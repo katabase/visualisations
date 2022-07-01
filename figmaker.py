@@ -2,7 +2,7 @@ from statistics import median, mean
 from plotly.colors import make_colorscale
 import plotly.graph_objs as go
 
-from databuilding import databuild
+from utils.databuilding import databuild
 
 
 # -------------------------------------------------------
@@ -282,11 +282,24 @@ def style(config, colors, scale):
 
 def figmaker():
     """
-    create all figures
+    create all figures. a single function is used to create all figures depending on
+    input data and a config dictionary that indicates how on earth to hande the data.
+    possibilities for config:
+        {
+            "level": "itm|cat|aut",  # the level at which we're working: catalogue, item or author (tei:name)
+            "mode": "total|avg|med|count|quart"
+                # the kind of data / how to process it
+                # - total: sum of sales for a year
+                # - avg: average sale price, per catalogue, item or author
+                # - med: median sale price, per catalogue or item
+                # - count: total number of sales, per catalogue or author
+                # - quart: quartiles per item
+        }
     :return:
     """
     # defining our variables
-    datelist, pdict_ls_cat, pdict_ls_item, cdict_auc_item, cdict_fix_item, quart_ls_item, term_item = databuild()
+    datelist, pdict_ls_cat, pdict_ls_item, cdict_auc_item, cdict_fix_item, quart_ls_item, \
+    cdict_term_item, pdict_auth_item = databuild()
     datelist = list(range(int(datelist[0]) - 1, int(datelist[-1]) + 1))  # years between the extremes of datelist (included)
 
     # making the figures
@@ -305,7 +318,11 @@ def figmaker():
     print(6)
     build({"mode": "quart", "level": "itm"}, datelist, quart_ls_item)
     print(7)
-    build({"mode": "term", "level": "itm"}, datelist, term_item)
+    build({"mode": "term", "level": "itm"}, datelist, cdict_term_item)
+    print(8)
+    build({"mode": "avg", "level": "aut"}, datelist, pdict_auth_item)  # TODO
+    print(9)
+    build({"mode": "count", "level": "aut"}, datelist, pdict_auth_item)  # TODO
 
     return None
 
