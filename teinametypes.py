@@ -129,7 +129,7 @@ def nametypes_tograph(data):
     layout=go.Layout(layout)
   )
   fig.show()
-  fig.write_image("out/teinametypes.png", width=700, height=1000)
+  fig.write_image("out/fig_teinametypes.png", width=700, height=1000)
 
 if __name__ == "__main__":
   data = getnametype()
